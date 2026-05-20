@@ -1,33 +1,53 @@
-name: CI Pipeline
+name: Node.js CI (project name)
 
 on:
   push:
-    branches:
-      - main
-      - develop
-
+    branches: [ main, develop ]
   pull_request:
-    branches:
-      - main
+    branches: [ main, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  quality-check:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
     steps:
-      - name: Descargar repositorio
+      - name: Code Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js
+      - name: Node.js setup ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-      - name: Instalar dependencias
-        run: npm install
+      - name: Clean dependency install
+        run: npm ci
 
-      # - name: Ejecutar ESLint
-      #   run: npx eslint "**/*.js"
+      - name: Security auditing
+        run: npm audit --audit-level=high
+        continue-on-error: true
 
-      - name: Verficar instalacion
-        run: echo "Infraestructura CI/CD configurada correctamente"
+      - name: Format check (Prettier)
+        run: npm run format
+
+      - name: Check standard (Lint)
+        run: npm run lint
+
+      - name: Type check (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Run Tests
+        run: npm test
+        env:
+          NODE_ENV: test
+
+      - name: Build Check
+        run: npm run build
