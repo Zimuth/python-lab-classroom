@@ -1,5 +1,5 @@
 FROM python:3.10-slim
 
-WORKDIR /app
+WORKDIR /sandbox
 
-CMD ["python", "script.py"]
+CMD ["python", "/sandbox/script.py"]
