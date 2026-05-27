@@ -1,0 +1,10 @@
+services:
+  sandbox-app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - sandbox_data:/sandbox
+
+volumes:
+  sandbox_data:
