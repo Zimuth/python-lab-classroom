@@ -1,25 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import { exec } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as WebSocket from 'ws';
 
 @Injectable()
 export class SandboxService {
-  async executePython(code: string): Promise<string> {
-    const filePath = path.join(__dirname, '../../temp/script.py');
+  executePython(
+    code: string,
+    onMessage: (data: any) => void,
+    onClose: () => void,
+    onError: (err: any) => void,
+  ) {
+    const ws = new WebSocket('ws://localhost:8500/ws/execute');
 
-    fs.writeFileSync(filePath, code);
+    ws.on('open', () => {
+      ws.send(code);
+    });
 
-    const command = `docker run --rm -v "${filePath}:/app/script.py" python-sandbox`;
+    ws.on('message', (data) => {
+      try {
+        const parsed = JSON.parse(data.toString());
+        onMessage(parsed);
+      } catch {
+        onMessage({
+          status: 'error',
+          output: data.toString(),
+          stream: 'system',
+        });
+      }
+    });
 
-    return new Promise((resolve, reject) => {
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          reject(stderr);
-        } else {
-          resolve(stdout);
-        }
-      });
+    ws.on('close', () => {
+      onClose();
+    });
+
+    ws.on('error', (err) => {
+      onError(err);
     });
   }
 }
