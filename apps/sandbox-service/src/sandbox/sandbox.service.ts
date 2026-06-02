@@ -3,37 +3,24 @@ import * as WebSocket from 'ws';
 
 @Injectable()
 export class SandboxService {
-  executePython(
-    code: string,
-    onMessage: (data: any) => void,
-    onClose: () => void,
-    onError: (err: any) => void,
-  ) {
-    const ws = new WebSocket('ws://localhost:8500/ws/execute');
+  private clients = new Map<string, WebSocket>();
 
-    ws.on('open', () => {
-      ws.send(code);
-    });
+  registerClient(jobId: string, client: WebSocket) {
+    this.clients.set(jobId, client);
 
-    ws.on('message', (data) => {
-      try {
-        const parsed = JSON.parse(data.toString());
-        onMessage(parsed);
-      } catch {
-        onMessage({
-          status: 'error',
-          output: data.toString(),
-          stream: 'system',
-        });
-      }
+    client.on('close', () => {
+      this.unregisterClient(jobId);
     });
+  }
 
-    ws.on('close', () => {
-      onClose();
-    });
+  unregisterClient(jobId: string) {
+    this.clients.delete(jobId);
+  }
 
-    ws.on('error', (err) => {
-      onError(err);
-    });
+  sendToClient(jobId: string, data: any) {
+    const client = this.clients.get(jobId);
+    if (client && client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(data));
+    }
   }
 }
