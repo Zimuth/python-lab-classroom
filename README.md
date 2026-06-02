@@ -12,13 +12,13 @@ Los estudiantes podrán resolver ejercicios directamente desde la plataforma med
 
 ## Objetivos
 
-* Crear aulas virtuales para enseñanza de Python
-* Permitir resolución de ejercicios en línea
-* Ejecutar código Python en entornos seguros
-* Implementar evaluación automática
-* Gestionar progreso de estudiantes
-* Incorporar diagramas y recursos visuales
-* Aplicar prácticas modernas de desarrollo de software
+- Crear aulas virtuales para enseñanza de Python
+- Permitir resolución de ejercicios en línea
+- Ejecutar código Python en entornos seguros
+- Implementar evaluación automática
+- Gestionar progreso de estudiantes
+- Incorporar diagramas y recursos visuales
+- Aplicar prácticas modernas de desarrollo de software
 
 ---
 
@@ -28,12 +28,12 @@ El proyecto utilizará arquitectura modular basada en monorepo.
 
 ### Componentes principales
 
-* Frontend Web
-* Backend API
-* Servicio de ejecución Python
-* Base de datos PostgreSQL
-* Infraestructura Docker
-* Integración Continua (CI/CD)
+- Frontend Web
+- Backend API
+- Servicio de ejecución Python
+- Base de datos PostgreSQL
+- Infraestructura Docker
+- Integración Continua (CI/CD)
 
 ---
 
@@ -60,12 +60,12 @@ El proyecto cuenta con integración continua mediante GitHub Actions.
 
 ### Funcionalidades configuradas
 
-* Pipeline automático CI/CD
-* Validación de dependencias
-* Hooks de Git con Husky
-* Formateo automático con Prettier
-* Estructura profesional de proyecto
-* Configuración inicial para ESLint
+- Pipeline automático CI/CD
+- Validación de dependencias
+- Hooks de Git con Husky
+- Formateo automático con Prettier
+- Estructura profesional de proyecto
+- Configuración inicial para ESLint
 
 ---
 
@@ -114,12 +114,12 @@ npm install
 
 El pipeline CI/CD se ejecuta automáticamente mediante GitHub Actions en cada:
 
-* push
-* pull request
+- push
+- pull request
 
 ---
 
-##  Estado del Proyecto
+## Estado del Proyecto
 
 🚧 En desarrollo
 
@@ -130,3 +130,78 @@ Actualmente se encuentra en fase de preparación de infraestructura y configurac
 ## Licencia
 
 Proyecto académico desarrollado para la materia de Generación de Software.
+
+## Ejecutar Sandbox
+
+# Requisitos
+
+- Docker
+- NodeJS
+
+# Pasos
+
+1. Instalar dependencias sandbox-service
+
+```bash
+cd apps/sandbox-service
+npm install
+```
+
+2. Ejecutar sandbox-service
+
+```bash
+npm run start:dev
+```
+
+3. Iniciar redis en docker
+
+```bash
+docker run -d --name redis -p 6379:6379 redis:8
+```
+
+4. Iniciar el sandbox docker
+
+```bash
+cd apps/sandbox-service
+docker build -t sb-python .
+docker run -p 8500:8500 sb-python
+```
+
+# Testing
+
+Para probar el sandbox usaremos Bruno o Postman, el tipo de conexión es WebSocket no HTTP entonces seleccionamos WS y nos conectamos al siguiente endpoint:
+
+```
+ws://localhost:3000/sandbox/execute
+```
+
+Y en Message escribimos el código dentro del JSON.
+
+```json
+{
+  "event": "execute",
+  "data": {
+    "code": "import time\nfor i in range(5):\n    print(f'Hello2 {i}')\n    time.sleep(1.5)"
+  }
+}
+```
+
+# Comandos útiles para troubleshooting
+
+```bash
+docker ps
+```
+
+Este comando es para verificar que ambos contenedores estén corriendo. Veremos sb-python y redis.
+
+```bash
+docker exec -it <id> sh
+```
+
+Este comando es para entrar en forma iteractiva al contendenero y ver el contendido, (/apps/executions).
+
+```bash
+while true; do clear; ls -la executions/; sleep 0.5; done
+```
+
+Este comando es para ver los archivos que se generan en el contenedor en tiempo real.
