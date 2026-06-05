@@ -1,4 +1,4 @@
-import bbb;
+import b;
 
 const saludo = 'Hola mundo';
 const unused = 123;
