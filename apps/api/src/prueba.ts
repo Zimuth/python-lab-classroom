@@ -1,3 +1,5 @@
+import aa
+
 const saludo = 'Hola mundo';
 const saludo2 = 'Como estas?';
 const unused = 123;
