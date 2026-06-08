@@ -5,14 +5,10 @@ on:
     branches:
       - develop
       - main
-    paths:
-      - 'apps/api/**'
   pull_request:
     branches:
       - develop
       - main
-    paths:
-      - 'apps/api/**'
 
 jobs:
   api-test:
