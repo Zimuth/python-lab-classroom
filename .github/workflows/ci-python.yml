@@ -5,14 +5,10 @@ on:
     branches:
       - develop
       - main
-    paths:
-      - 'apps/sb-python/**'
   pull_request:
     branches:
       - develop
       - main
-    paths:
-      - 'apps/sb-python/**'
 
 jobs:
   python-test:
