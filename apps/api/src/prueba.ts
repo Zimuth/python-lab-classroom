@@ -1,3 +1,4 @@
+export const prueba 'ok';
 const saludo = 'Hola mundo';
 const saludo2 = 'Como estas?';
 const unused = 123;
