@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-sandbox
+  labels:
+    app: python-sandbox
+spec:
+  selector:
+    matchLabels:
+      app: python-sandbox
+  template:
+    metadata:
+      labels:
+        app: python-sandbox
+    spec:
+      containers:
+        - name: sandbox
+          image: my-python-sandbox:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8500
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-sandbox-service
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8500
+      targetPort: 8500
+      protocol: TCP
+  selector:
+    app: python-sandbox
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: python-sandbox-scaler
+spec:
+  scaleTargetRef:
+    name: python-sandbox
+  minReplicaCount: 1 # Mínimo 1 réplica
+  maxReplicaCount: 20 # Máximo 20 réplicas
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 60 # Tiempo en segundos que se espera antes de reducir el número de réplicas
+  triggers:
+    - type: redis
+      metadata:
+        address: 192.168.100.54:6379
+        listName: bull:python-execution:wait
+        listLength: '15' # Número de trabajos en cola que se necesitan para escalar 1 réplica adicional
