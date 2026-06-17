@@ -54,7 +54,7 @@ executions/
 temp/
 apps/sb-python/executions/
 apps/sandbox-service/temp/
-
+my-python-sandbox.tar
 # ===== Editores e IDEs =====
 .idea/
 .vscode/
