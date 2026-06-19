@@ -2,13 +2,26 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AssignmentsService } from './assignments.service';
 import { Assignment } from './entities/assignment.entity';
 import { BadRequestException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm'; // <-- 1. IMPORTANTE: Esto faltaba
 
 describe('AssignmentsService', () => {
   let service: AssignmentsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AssignmentsService],
+      providers: [
+        AssignmentsService,
+        // <-- 2. AQUÍ ESTÁ EL MOCK QUE SOLUCIONA EL ERROR:
+        {
+          provide: getRepositoryToken(Assignment), 
+          useValue: {
+            find: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            create: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<AssignmentsService>(AssignmentsService);

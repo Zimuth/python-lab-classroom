@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AssignmentsService } from './assignments.service';
+import { getRepositoryToken } from '@nestjs/typeorm'; // <-- 1. IMPORTANTE: Necesitamos esto para que Nest no falle
+import { Assignment } from './entities/assignment.entity'; // <-- Asegúrate de tener tu entidad importada aquí
 
-// Definimos una interfaz local simulada para la prueba, evitando usar la entidad directa si causa conflictos de tipos
 interface MockAssignment {
   fechaPublicacion: Date;
   fechaEntrega: Date;
@@ -12,7 +13,19 @@ describe('AssignmentsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AssignmentsService],
+      providers: [
+        AssignmentsService,
+        // <-- 2. REQUISITO OBLIGATORIO: El mock que evita el error del pipeline de Git
+        {
+          provide: getRepositoryToken(Assignment),
+          useValue: {
+            find: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            create: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<AssignmentsService>(AssignmentsService);
@@ -20,10 +33,9 @@ describe('AssignmentsService', () => {
 
   describe('Validación de Casos de Prueba', () => {
     it('debería lanzar un error si hay un .in pero no hay un .out', () => {
-      const input = '5 4'; // Simulamos el 0.in
-      const output = ''; // Simulamos que olvidaron el 0.out
+      const input = '5 4';
+      const output = '';
 
-      // Verificamos que la función lance CUALQUIER excepción/error cuando rompe la regla
       expect(() => service.validateTestCase(input, output)).toThrow();
     });
 
@@ -34,11 +46,12 @@ describe('AssignmentsService', () => {
 
   describe('Reglas de Fechas (Visibilidad)', () => {
     it('no debería ser visible si la fecha actual es ANTES de la fecha de publicación', () => {
+      // 3. CAMBIO DE FECHAS: Usamos el año 2030 para evitar conflictos con el año actual
       const assignment: MockAssignment = {
-        fechaPublicacion: new Date('2026-06-15T00:00:00Z'),
-        fechaEntrega: new Date('2026-06-20T00:00:00Z'),
+        fechaPublicacion: new Date('2030-06-15T00:00:00Z'),
+        fechaEntrega: new Date('2030-06-20T00:00:00Z'),
       };
-      const currentDate = new Date('2026-06-10T00:00:00Z');
+      const currentDate = new Date('2030-06-10T00:00:00Z');
 
       const isVisible = service.canStudentView(assignment as any, currentDate);
       expect(isVisible).toBe(false);
@@ -46,10 +59,10 @@ describe('AssignmentsService', () => {
 
     it('debería ser visible si la fecha actual es DESPUÉS de la fecha de publicación', () => {
       const assignment: MockAssignment = {
-        fechaPublicacion: new Date('2026-06-15T00:00:00Z'),
-        fechaEntrega: new Date('2026-06-20T00:00:00Z'),
+        fechaPublicacion: new Date('2030-06-15T00:00:00Z'),
+        fechaEntrega: new Date('2030-06-20T00:00:00Z'),
       };
-      const currentDate = new Date('2026-06-16T00:00:00Z');
+      const currentDate = new Date('2030-06-16T00:00:00Z');
 
       const isVisible = service.canStudentView(assignment as any, currentDate);
       expect(isVisible).toBe(true);
