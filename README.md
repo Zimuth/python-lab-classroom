@@ -329,3 +329,98 @@ cd apps/sandbox-service
 npm install
 npm run build
 pm2 start /opt/python-lab-classroom/apps/sandbox-service/dist/main.js --name service-sandbox
+
+## Configuración y Despliegue de la API (NestJS)
+
+### 1. Conexión y Configuración de PostgreSQL (Usuario `ubuntu`)
+
+Desde tu terminal local, conéctate al servidor con el usuario `ubuntu` (asegúrate de que la llave tenga los permisos correctos si estás en Linux/Mac con `chmod 400`):
+
+```bash
+ssh -i apps/LightsailDefaultKey-sa-east-1.pem ubuntu@<IP>
+```
+
+Actualiza el sistema e instala PostgreSQL:
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib
+```
+
+Entra a la consola de PostgreSQL:
+
+```bash
+sudo -u postgres psql
+```
+
+Crea la base de datos y usuario para la API (ejecuta esto dentro de psql):
+
+```sql
+CREATE DATABASE api_db;
+CREATE USER api_user WITH ENCRYPTED PASSWORD '<TU_CONTRASEÑA>';
+GRANT ALL PRIVILEGES ON DATABASE api_db TO api_user;
+\q
+```
+
+Habilita el tráfico web por el puerto 3000 (Opcional, en AWS Lightsail recuerda abrir el puerto desde la consola web):
+
+```bash
+sudo ufw allow 3000/tcp
+```
+
+### 2. Despliegue de la API (Usuario `apps_user`)
+
+Cambia al usuario `apps_user`:
+
+```bash
+su - apps_user
+```
+
+Navega al directorio del proyecto (que ya debe estar clonado según los pasos anteriores):
+
+```bash
+cd /opt/python-lab-classroom
+```
+
+Asegúrate de traer los cambios de la rama correcta (en este caso `api-deploy`):
+
+```bash
+git fetch origin
+git switch api-deploy
+```
+
+Ve a la carpeta de la API e instala las dependencias:
+
+```bash
+cd apps/api
+npm install
+```
+
+Configura las variables de entorno. Crea y edita el archivo `.env`:
+
+```bash
+nano .env
+```
+Y añade el siguiente contenido (reemplaza las contraseñas si elegiste otra distinta):
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=api_user
+DB_PASSWORD=<TU_CONTRASEÑA>
+DB_NAME=api_db
+```
+Guarda y sal del editor (En nano: `Ctrl+O`, `Enter`, `Ctrl+X`).
+
+Haz build del proyecto y arranca la API en segundo plano con PM2:
+
+```bash
+npm run build
+pm2 start dist/main.js --name "nest-api"
+pm2 save
+pm2 startup
+```
+
+Para verificar que está funcionando correctamente, puedes revisar los logs:
+```bash
+pm2 logs nest-api
+```
