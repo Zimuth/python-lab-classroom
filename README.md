@@ -259,3 +259,73 @@ kubectl exec -it <nombre-del-pod> -- /bin/bash
 ```bash
 kubectl describe scaledobject python-sandbox-scaler
 ```
+
+# Cómo hacer el deploy paso por paso desde cero
+
+## Elegir proveedor de VPS
+
+Puede ser DigitalOcean, AWS, Google Cloud o cualquier proveedor que proporcione un VPS con una IPv4 pública. Se usará Amazon Lightsail para este README con la distribución Ubuntu 24.04.4 LTS x86_64, pero se puede usar cualquier distribución, sin embargo en este README estará orientado a distribuciones basadas en Debian ya que usaremos apt como manejador de paquetes.
+Al descargar la clave SSH por defecto del VPS en AmazonLightsail ejecutamos:
+`ssh -i LightsailDefaultKey-sa-east-1.pem ubuntu@<IP>`
+después en la línea de la terminal se mostrará `ubuntu@ip-<IP>:~$` hecho esto se puede continuar.
+
+## Instalar Docker
+
+apt docker.io
+
+## Instalar Redis
+
+mediante docker compose
+
+## Instalar Kubernetes
+
+## Crear un nuevo usuario para los microservicios
+
+sudo useradd -m -s /bin/bash apps_user
+sudo passwd apps_user
+
+Se pedirá introducir una contraseña, en este caso se pondrá: NestNext!1
+
+## Instalar NVM (Node Version Manager) y NodeJS
+
+Actualmente está logeado en user ubuntu pero se debe cambiar al usuario que acabamos de crear con el comando:
+su - apps_user
+Pedirá la contraseña, se entrará con NestNext!1
+
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash
+
+Probamos si está correcto saliendo con
+exit
+y luego volviendo a hacer
+su - apps_user
+nvm --version
+Ahora ya podemos utilizar nvm para instalar node
+nvm install 24
+y verificamos con
+node --version
+(recordar que seguimos como el usuario apps_user)
+
+## Instalar PM2
+
+Ahora ya podemos instalar PM2 con npm ya que al tener node también tenemos el manejador de paquetes de NodeJs que es npm, ejecutamos
+npm -g install pm2
+
+## Clonar repositorio y ejecutar sandbox-service con pm2
+
+Primero vamos a /opt con
+cd /opt
+cambiamos a el usuario ubuntu
+exit
+sudo mkdir -p /opt/python-lab-classroom
+sudo chown -R apps_user:apps_user /opt/python-lab-classroom
+
+# cambiamos a apps_user otra vez
+
+su - apps_user
+git clone https://github.com/Zimuth/python-lab-classroom.git /opt/python-lab-classroom
+cd /opt/python-lab-classroom
+git switch develop (Este paso solo lo hacemos si todavía está en desarrollo sino podemos quedarnos en la rama main)
+cd apps/sandbox-service
+npm install
+npm run build
+pm2 start /opt/python-lab-classroom/apps/sandbox-service/dist/main.js --name service-sandbox
