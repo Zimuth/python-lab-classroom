@@ -39,18 +39,18 @@ El proyecto utilizará arquitectura modular basada en monorepo.
 
 ## Tecnologías Utilizadas
 
-| Tecnología     | Uso                  |
-| -------------- | -------------------- |
-| Node.js        | Entorno de ejecución |
-| Next.js        | Frontend             |
-| React          | Interfaz de usuario  |
-| NestJS         | Backend API          |
-| PostgreSQL     | Base de datos        |
-| Docker         | Contenedores         |
-| GitHub Actions | Integración continua |
-| ESLint         | Calidad de código    |
-| Prettier       | Formato de código    |
-| Husky          | Git hooks            |
+| Tecnología     | Uso                         |
+| -------------- | --------------------------- |
+| Node.js        | Entorno de ejecución        |
+| React          | Interfaz de usuario         |
+| NestJS         | Backend API                 |
+| PostgreSQL     | Base de datos               |
+| Docker         | Contenedores                |
+| k3s            | Orquestador de contenedores |
+| GitHub Actions | Integración continua        |
+| ESLint         | Calidad de código           |
+| Prettier       | Formato de código           |
+| Husky          | Git hooks                   |
 
 ---
 
@@ -182,18 +182,18 @@ kubectl apply --server-side -f https://github.com/kedacore/keda/releases/downloa
 Se construye la imagen de Python ubicándose en la raíz del proyecto:
 
 ```bash
-docker build -t my-python-sandbox:latest ./apps/sb-python
+docker build -t python-sandbox:latest ./apps/sb-python
 ```
 
 **Importante según el Sistema Operativo**
 
 - **Linux (k3s):** k3s usa su propio motor `containerd`, por lo que no ve las imágenes de Docker local. Se debe exportarla e importarla:
   ```bash
-  docker save my-python-sandbox:latest -o my-python-sandbox.tar
-  sudo k3s ctr images import my-python-sandbox.tar
+  docker save python-sandbox:latest -o python-sandbox.tar
+  sudo k3s ctr images import python-sandbox.tar
   ```
 - **Windows / Mac (Docker Desktop):** Kubernetes en Docker Desktop comparte las imágenes de Docker automáticamente. No se necesita hacer nada más
-- **Windows / Mac (Minikube):** Se carga la imagen ejecutando `minikube image load my-python-sandbox:latest`.
+- **Windows / Mac (Minikube):** Se carga la imagen ejecutando `minikube image load python-sandbox:latest`.
 
 #### 4. Configurar tu IP Local
 
@@ -262,146 +262,344 @@ kubectl describe scaledobject python-sandbox-scaler
 
 # Cómo hacer el deploy paso por paso desde cero
 
-## Elegir proveedor de VPS
+## 1. Elegir proveedor de VPS
 
-Puede ser DigitalOcean, AWS, Google Cloud o cualquier proveedor que proporcione un VPS con una IPv4 pública. Se usará Amazon Lightsail para este README con la distribución Ubuntu 24.04.4 LTS x86_64, pero se puede usar cualquier distribución, sin embargo en este README estará orientado a distribuciones basadas en Debian ya que usaremos apt como manejador de paquetes.
-Al descargar la clave SSH por defecto del VPS en AmazonLightsail ejecutamos:
-`ssh -i LightsailDefaultKey-sa-east-1.pem ubuntu@<IP>`
-después en la línea de la terminal se mostrará `ubuntu@ip-<IP>:~$` hecho esto se puede continuar.
+Puede ser DigitalOcean, AWS, Google Cloud o cualquier proveedor que proporcione un VPS con una IPv4 pública. Se usará **Amazon Lightsail** para este README con la distribución **Ubuntu 24.04.4 LTS x86_64**, pero se puede usar cualquier distribución basada en Debian (usaremos `apt` como manejador de paquetes).
 
-## Instalar Docker
+Al descargar la clave SSH por defecto del VPS en Amazon Lightsail, nos conectamos:
 
-apt docker.io
+```bash
+ssh -i LightsailDefaultKey-sa-east-1.pem ubuntu@<IP>
+```
 
-## Instalar Redis
+Una vez conectado, la terminal mostrará `ubuntu@ip-<IP>:~$` y se puede continuar.
 
-mediante docker compose
+---
 
-## Instalar Kubernetes
+## 2. Instalar Docker
 
-## Crear un nuevo usuario para los microservicios
+> **Contexto:** Ejecutar como usuario `ubuntu`.
 
+Agregar la clave GPG oficial de Docker:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+Agregar el repositorio a las fuentes de apt:
+
+```bash
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+```
+
+Instalar Docker Engine y Docker Compose:
+
+```bash
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+---
+
+## 3. Iniciar Redis con Docker Compose
+
+Desde la raíz del repositorio clonado, iniciar el servicio de Redis definido en `docker-compose.yml`:
+
+```bash
+docker compose up -d
+```
+
+Verificar que Redis está corriendo:
+
+```bash
+docker ps
+```
+
+---
+
+## 4. Construir la imagen Docker del Sandbox
+
+Desde la raíz del proyecto, construir la imagen:
+
+```bash
+docker build -t python-sandbox:latest ./apps/sb-python
+```
+
+---
+
+## 5. Instalar Kubernetes (k3s)
+
+> **⚠️ IMPORTANTE:** Se debe deshabilitar Traefik **antes** de instalar k3s (o inmediatamente después y reiniciar). Traefik ocupa los puertos 80 y 443, lo cual impedirá que Nginx funcione más adelante.
+
+### 5.1. Crear el archivo de configuración de k3s
+
+```bash
+sudo mkdir -p /etc/rancher/k3s
+sudo nano /etc/rancher/k3s/config.yaml
+```
+
+Pegar el siguiente contenido:
+
+```yaml
+disable:
+  - traefik
+```
+
+Guardar y salir (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+### 5.2. Instalar k3s
+
+```bash
+curl -sfL https://get.k3s.io | sh -
+```
+
+Verificar que k3s está corriendo:
+
+```bash
+sudo systemctl status k3s
+kubectl get nodes
+```
+
+### 5.3. Instalar KEDA (Autoescalador)
+
+KEDA es el autoescalador que monitorea la cola de Redis y escala los pods del sandbox automáticamente:
+
+```bash
+kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.14.0/keda-2.14.0.yaml
+```
+
+Verificar que KEDA está corriendo:
+
+```bash
+kubectl get pods -n keda
+```
+
+### 5.4. Importar la imagen del Sandbox a k3s
+
+k3s usa su propio motor `containerd`, por lo que **no ve las imágenes de Docker local**. Se debe exportar la imagen e importarla manualmente:
+
+```bash
+docker save python-sandbox:latest -o python-sandbox.tar
+sudo k3s ctr images import python-sandbox.tar
+```
+
+Verificar que la imagen fue importada:
+
+```bash
+sudo k3s ctr images list | grep python-sandbox
+```
+
+### 5.5. Configurar la IP de Redis en el manifiesto de Kubernetes
+
+KEDA necesita conectarse a Redis para monitorear la cola de trabajos. Dado que KEDA corre dentro del clúster de Kubernetes, **no puede usar `localhost` ni `127.0.0.1`** — se debe usar la IP privada del servidor.
+
+Obtener la IP privada:
+
+```bash
+hostname -I
+```
+
+Editar el archivo `k8s/python-sandbox.yaml` y reemplazar la dirección IP de Redis en la sección de KEDA:
+
+```bash
+nano k8s/python-sandbox.yaml
+```
+
+Buscar la sección de triggers y actualizar la IP:
+
+```yaml
+triggers:
+  - type: redis
+    metadata:
+      address: <IP_PRIVADA>:6379
+      listName: bull:python-execution:wait
+      listLength: "15"
+```
+
+### 5.6. Desplegar el Sandbox en Kubernetes
+
+Aplicar los manifiestos para crear el Deployment, el Service y el ScaledObject:
+
+```bash
+kubectl apply -f k8s/python-sandbox.yaml
+```
+
+Verificar que el pod está corriendo exitosamente:
+
+```bash
+kubectl get pods -l app=python-sandbox
+```
+
+> **Troubleshooting:** Si el pod muestra `ImagePullBackOff`, significa que la imagen no fue importada correctamente. Repetir el paso 5.4.
+
+---
+
+## 6. Crear un usuario para los microservicios
+
+> **Contexto:** Ejecutar como usuario `ubuntu`.
+
+```bash
 sudo useradd -m -s /bin/bash apps_user
 sudo passwd apps_user
+```
 
-Se pedirá introducir una contraseña, en este caso se pondrá: NestNext!1
+Se pedirá introducir una contraseña (ej: `NestNext!1`).
 
-## Instalar NVM (Node Version Manager) y NodeJS
+---
 
-Actualmente está logeado en user ubuntu pero se debe cambiar al usuario que acabamos de crear con el comando:
+## 7. Instalar NVM, Node.js y PM2
+
+> **Contexto:** Cambiar al usuario `apps_user`.
+
+```bash
 su - apps_user
-Pedirá la contraseña, se entrará con NestNext!1
+```
 
+### 7.1. Instalar NVM
+
+```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash
+```
 
-Probamos si está correcto saliendo con
+Recargar la sesión para que NVM esté disponible:
+
+```bash
 exit
-y luego volviendo a hacer
 su - apps_user
 nvm --version
-Ahora ya podemos utilizar nvm para instalar node
+```
+
+### 7.2. Instalar Node.js
+
+```bash
 nvm install 24
-y verificamos con
 node --version
-(recordar que seguimos como el usuario apps_user)
+```
 
-## Instalar PM2
+### 7.3. Instalar PM2
 
-Ahora ya podemos instalar PM2 con npm ya que al tener node también tenemos el manejador de paquetes de NodeJs que es npm, ejecutamos
-npm -g install pm2
+```bash
+npm install -g pm2
+```
 
-## Clonar repositorio y ejecutar sandbox-service con pm2
+---
 
-Primero vamos a /opt con
-cd /opt
-cambiamos a el usuario ubuntu
-exit
+## 8. Clonar repositorio y ejecutar sandbox-service
+
+> **Contexto:** Primero como `ubuntu` para crear el directorio, luego como `apps_user` para clonar y ejecutar.
+
+Como `ubuntu`:
+
+```bash
+exit  # Salir de apps_user si estamos logueados
 sudo mkdir -p /opt/python-lab-classroom
 sudo chown -R apps_user:apps_user /opt/python-lab-classroom
+```
 
-# cambiamos a apps_user otra vez
+Como `apps_user`:
 
+```bash
 su - apps_user
 git clone https://github.com/Zimuth/python-lab-classroom.git /opt/python-lab-classroom
 cd /opt/python-lab-classroom
-git switch develop (Este paso solo lo hacemos si todavía está en desarrollo sino podemos quedarnos en la rama main)
+git switch develop  # Solo si todavía está en desarrollo, sino quedarse en main
+```
+
+Compilar y ejecutar el sandbox-service con PM2:
+
+```bash
 cd apps/sandbox-service
 npm install
 npm run build
 pm2 start /opt/python-lab-classroom/apps/sandbox-service/dist/main.js --name service-sandbox
-
-## Configuración y Despliegue de la API (NestJS)
-
-### 1. Conexión y Configuración de PostgreSQL (Usuario `ubuntu`)
-
-Desde tu terminal local, conéctate al servidor con el usuario `ubuntu` (asegúrate de que la llave tenga los permisos correctos si estás en Linux/Mac con `chmod 400`):
-
-```bash
-ssh -i apps/LightsailDefaultKey-sa-east-1.pem ubuntu@<IP>
 ```
 
-Actualiza el sistema e instala PostgreSQL:
+---
+
+## 9. Configuración y Despliegue de la API (NestJS)
+
+### 9.1. Instalar y configurar PostgreSQL
+
+> **Contexto:** Ejecutar como usuario `ubuntu`.
 
 ```bash
 sudo apt update
 sudo apt install -y postgresql postgresql-contrib
 ```
 
-Entra a la consola de PostgreSQL:
+Entrar a la consola de PostgreSQL:
 
 ```bash
 sudo -u postgres psql
 ```
 
-Crea la base de datos y usuario para la API (ejecuta esto dentro de psql):
+Crear la base de datos y el usuario (dentro de `psql`):
 
 ```sql
 CREATE DATABASE api_db;
 CREATE USER api_user WITH ENCRYPTED PASSWORD '<TU_CONTRASEÑA>';
-GRANT ALL PRIVILEGES ON DATABASE api_db TO api_user;
 \q
 ```
 
-Habilita el tráfico web por el puerto 3000 (Opcional, en AWS Lightsail recuerda abrir el puerto desde la consola web):
+Conectarse a la base de datos recién creada para asignar permisos:
 
 ```bash
-sudo ufw allow 3000/tcp
+sudo -u postgres psql -d api_db
 ```
 
-### 2. Despliegue de la API (Usuario `apps_user`)
+```sql
+GRANT ALL PRIVILEGES ON DATABASE api_db TO api_user;
+GRANT USAGE ON SCHEMA public TO api_user;
+GRANT CREATE ON SCHEMA public TO api_user;
 
-Cambia al usuario `apps_user`:
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO api_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO api_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON TABLES TO api_user;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON SEQUENCES TO api_user;
+\q
+```
+
+### 9.2. Desplegar la API
+
+> **Contexto:** Ejecutar como usuario `apps_user`.
 
 ```bash
 su - apps_user
-```
-
-Navega al directorio del proyecto (que ya debe estar clonado según los pasos anteriores):
-
-```bash
 cd /opt/python-lab-classroom
 ```
 
-Asegúrate de traer los cambios de la rama correcta (en este caso `api-deploy`):
+Cambiar a la rama correcta:
 
 ```bash
 git fetch origin
 git switch api-deploy
 ```
 
-Ve a la carpeta de la API e instala las dependencias:
+Instalar dependencias y configurar el entorno:
 
 ```bash
 cd apps/api
 npm install
-```
-
-Configura las variables de entorno. Crea y edita el archivo `.env`:
-
-```bash
 nano .env
 ```
-Y añade el siguiente contenido (reemplaza las contraseñas si elegiste otra distinta):
+
+Contenido del archivo `.env`:
+
 ```env
 DB_HOST=localhost
 DB_PORT=5432
@@ -409,9 +607,10 @@ DB_USERNAME=api_user
 DB_PASSWORD=<TU_CONTRASEÑA>
 DB_NAME=api_db
 ```
-Guarda y sal del editor (En nano: `Ctrl+O`, `Enter`, `Ctrl+X`).
 
-Haz build del proyecto y arranca la API en segundo plano con PM2:
+Guardar y salir (`Ctrl+O`, `Enter`, `Ctrl+X`).
+
+Compilar y arrancar la API con PM2:
 
 ```bash
 npm run build
@@ -420,7 +619,126 @@ pm2 save
 pm2 startup
 ```
 
-Para verificar que está funcionando correctamente, puedes revisar los logs:
+Verificar que funciona:
+
 ```bash
 pm2 logs nest-api
 ```
+
+---
+
+## 10. Desplegar el Frontend
+
+> **Contexto:** Ejecutar como usuario `apps_user`.
+
+```bash
+cd /opt/python-lab-classroom/apps/frontend
+npm install
+npm run build
+```
+
+Copiar los archivos compilados al directorio de Nginx (requiere `ubuntu`):
+
+```bash
+exit  # Volver a ubuntu
+sudo mkdir -p /var/www/python-lab-client
+sudo cp -r /opt/python-lab-classroom/apps/frontend/dist/* /var/www/python-lab-client/
+```
+
+---
+
+## 11. Instalar y configurar Nginx
+
+> **Contexto:** Ejecutar como usuario `ubuntu`.
+
+```bash
+sudo apt install -y nginx
+```
+
+### 11.1. Configurar el sitio del Frontend
+
+```bash
+sudo nano /etc/nginx/sites-available/python-lab
+```
+
+Pegar el siguiente contenido:
+
+```nginx
+server {
+    listen 80 default_server;
+    server_name <dominio>;
+
+    root /var/www/python-lab-client;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Activar el sitio:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/python-lab /etc/nginx/sites-enabled/
+```
+
+### 11.2. Configurar el proxy reverso para la API
+
+```bash
+sudo nano /etc/nginx/sites-available/api.python-lab
+```
+
+Pegar el siguiente contenido:
+
+```nginx
+server {
+    listen 80;
+    server_name <api-dominio>;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Activar el sitio y eliminar la configuración por defecto:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/api.python-lab /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+```
+
+Probar la configuración y reiniciar Nginx:
+
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+sudo systemctl enable nginx
+```
+
+---
+
+## 12. Instalar Certbot (SSL/HTTPS)
+
+```bash
+sudo apt update
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+Obtener los certificados SSL:
+
+```bash
+sudo certbot --nginx -d python-lab.pipexapp.com
+sudo certbot --nginx -d api.python-lab.pipexapp.com
+```
+
+Certbot renovará los certificados automáticamente.
