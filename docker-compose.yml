@@ -1,12 +1,19 @@
 services:
-  redis:
-    image: redis:8
-    container_name: redis
-    ports:
-      - "6379:6379"
+  postgres:
+    image: postgres:16
+    container_name: python_lab_postgres
+    restart: always
 
-  python-sandbox:
-    build: ./apps/sb-python
-    image: python-sandbox:latest
-    profiles:
-      - build-only
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: python_lab
+
+    ports:
+      - '5555:5432'
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

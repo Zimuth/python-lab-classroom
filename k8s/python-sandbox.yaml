@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: sandbox
-          image: python-sandbox:latest
+          image: my-python-sandbox:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8500

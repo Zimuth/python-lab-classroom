@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { envConfig } from './../../envconfig';
 
 export default function Profesor() {
   const [titulo, setTitulo] = useState('');
@@ -15,7 +14,7 @@ export default function Profesor() {
     setSaved(false);
 
     try {
-      const res = await fetch(`${envConfig.API_URL}/assignments`, {
+      const res = await fetch('http://localhost:3000/assignments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
