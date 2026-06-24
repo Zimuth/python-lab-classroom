@@ -4,3 +4,9 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
+
+  python-sandbox:
+    build: ./apps/sb-python
+    image: python-sandbox:latest
+    profiles:
+      - build-only
