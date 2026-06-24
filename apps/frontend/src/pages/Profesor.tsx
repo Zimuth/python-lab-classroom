@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { envConfig } from './../../envconfig';
 
 export default function Profesor() {
   const [titulo, setTitulo] = useState('');
@@ -14,7 +15,7 @@ export default function Profesor() {
     setSaved(false);
 
     try {
-      const res = await fetch('http://localhost:3000/assignments', {
+      const res = await fetch(`${envConfig.API_URL}/assignments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -54,21 +55,21 @@ export default function Profesor() {
           <h3>Información General</h3>
           <label>
             Título
-            <input 
-              value={titulo} 
-              onChange={(e) => setTitulo(e.target.value)} 
+            <input
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ej: Suma de dos números"
-              required 
+              required
             />
           </label>
 
           <label>
             Descripción
-            <textarea 
-              value={descripcion} 
-              onChange={(e) => setDescripcion(e.target.value)} 
+            <textarea
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Describe qué debe hacer el estudiante..."
-              required 
+              required
             />
           </label>
         </div>
