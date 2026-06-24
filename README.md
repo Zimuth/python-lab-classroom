@@ -274,6 +274,28 @@ ssh -i LightsailDefaultKey-sa-east-1.pem ubuntu@<IP>
 
 Una vez conectado, la terminal mostrará `ubuntu@ip-<IP>:~$` y se puede continuar.
 
+### 1.1. Configurar dominio y subdominios (DNS)
+
+Este proyecto utiliza **3 subdominios** que deben apuntar a la IP pública de tu VPS. Ir al panel de administración DNS de tu proveedor de dominio (ej: Namecheap, Cloudflare, GoDaddy, Route 53) y crear los siguientes registros **A**:
+
+| Tipo | Nombre (Host)   | Valor (IP)        | Descripción                      |
+|------|-----------------|-------------------|----------------------------------|
+| A    | `python-lab`    | `<IP_PUBLICA_VPS>` | Frontend (React)                |
+| A    | `api.python-lab` | `<IP_PUBLICA_VPS>` | API REST (NestJS)               |
+| A    | `sandbox.python-lab` | `<IP_PUBLICA_VPS>` | Sandbox WebSocket (sandbox-service) |
+
+> **Nota:** El nombre exacto depende de tu dominio base. Si tu dominio es `pipexapp.com`, los subdominios completos serían `python-lab.pipexapp.com`, `api.python-lab.pipexapp.com` y `sandbox.python-lab.pipexapp.com`.
+
+> **Tip:** Los cambios de DNS pueden tardar entre unos minutos y hasta 48 horas en propagarse. Se puede verificar con `nslookup python-lab.pipexapp.com` o `dig python-lab.pipexapp.com`.
+
+También se deben abrir los siguientes puertos en el firewall del VPS (en AWS Lightsail, ir a la pestaña **Networking** de la instancia):
+
+| Puerto | Protocolo | Uso                    |
+|--------|-----------|------------------------|
+| 22     | TCP       | SSH                    |
+| 80     | TCP       | HTTP (Nginx)           |
+| 443    | TCP       | HTTPS (Nginx + SSL)    |
+
 ---
 
 ## 2. Instalar Docker
@@ -424,7 +446,7 @@ triggers:
     metadata:
       address: <IP_PRIVADA>:6379
       listName: bull:python-execution:wait
-      listLength: "15"
+      listLength: '15'
 ```
 
 ### 5.6. Desplegar el Sandbox en Kubernetes
@@ -643,6 +665,7 @@ Copiar los archivos compilados al directorio de Nginx (requiere `ubuntu`):
 exit  # Volver a ubuntu
 sudo mkdir -p /var/www/python-lab-client
 sudo cp -r /opt/python-lab-classroom/apps/frontend/dist/* /var/www/python-lab-client/
+sudo chown -R www-data:www-data /var/www/python-lab-client
 ```
 
 ---
@@ -710,16 +733,55 @@ server {
 }
 ```
 
-Activar el sitio y eliminar la configuración por defecto:
+Activar el sitio:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/api.python-lab /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
 ```
 
-Probar la configuración y reiniciar Nginx:
+### 11.3. Configurar el proxy WebSocket para el Sandbox
+
+El sandbox-service usa **WebSockets** para enviar la salida del código Python en tiempo real al navegador. Nginx debe estar configurado para permitir la conexión WebSocket con los headers `Upgrade` y `Connection`.
 
 ```bash
+sudo nano /etc/nginx/sites-available/sandbox.python-lab
+```
+
+Pegar el siguiente contenido:
+
+```nginx
+server {
+    listen 80;
+    server_name sandbox.python-lab.pipexapp.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+}
+```
+
+> **Nota:** `proxy_read_timeout 86400` (24 horas) evita que Nginx cierre las conexiones WebSocket por inactividad. Los headers `Upgrade` y `Connection "upgrade"` son **obligatorios** para que el protocolo WebSocket funcione a través del proxy.
+
+Activar el sitio:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/sandbox.python-lab /etc/nginx/sites-enabled/
+```
+
+### 11.4. Activar los sitios y reiniciar Nginx
+
+Eliminar la configuración por defecto de Nginx, probar y reiniciar:
+
+```bash
+sudo rm /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
 sudo systemctl enable nginx
@@ -734,11 +796,16 @@ sudo apt update
 sudo apt install -y certbot python3-certbot-nginx
 ```
 
-Obtener los certificados SSL:
+Obtener los certificados SSL para los 3 subdominios:
 
 ```bash
 sudo certbot --nginx -d python-lab.pipexapp.com
 sudo certbot --nginx -d api.python-lab.pipexapp.com
+sudo certbot --nginx -d sandbox.python-lab.pipexapp.com
 ```
 
-Certbot renovará los certificados automáticamente.
+Certbot renovará los certificados automáticamente. Se puede verificar la renovación con:
+
+```bash
+sudo certbot renew --dry-run
+```
