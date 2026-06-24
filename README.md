@@ -19,6 +19,13 @@ Los estudiantes podrán resolver ejercicios directamente desde la plataforma med
 - Gestionar progreso de estudiantes
 - Incorporar diagramas y recursos visuales
 - Aplicar prácticas modernas de desarrollo de software
+- Crear aulas virtuales para enseñanza de Python
+- Permitir resolución de ejercicios en línea
+- Ejecutar código Python en entornos seguros
+- Implementar evaluación automática
+- Gestionar progreso de estudiantes
+- Incorporar diagramas y recursos visuales
+- Aplicar prácticas modernas de desarrollo de software
 
 ---
 
@@ -28,6 +35,12 @@ El proyecto utilizará arquitectura modular basada en monorepo.
 
 ### Componentes principales
 
+- Frontend Web
+- Backend API
+- Servicio de ejecución Python
+- Base de datos PostgreSQL
+- Infraestructura Docker
+- Integración Continua (CI/CD)
 - Frontend Web
 - Backend API
 - Servicio de ejecución Python
@@ -60,6 +73,12 @@ El proyecto cuenta con integración continua mediante GitHub Actions.
 
 ### Funcionalidades configuradas
 
+- Pipeline automático CI/CD
+- Validación de dependencias
+- Hooks de Git con Husky
+- Formateo automático con Prettier
+- Estructura profesional de proyecto
+- Configuración inicial para ESLint
 - Pipeline automático CI/CD
 - Validación de dependencias
 - Hooks de Git con Husky
@@ -116,8 +135,12 @@ El pipeline CI/CD se ejecuta automáticamente mediante GitHub Actions en cada:
 
 - push
 - pull request
+- push
+- pull request
 
 ---
+
+## Estado del Proyecto
 
 ## Estado del Proyecto
 
@@ -278,10 +301,10 @@ Una vez conectado, la terminal mostrará `ubuntu@ip-<IP>:~$` y se puede continua
 
 Este proyecto utiliza **3 subdominios** que deben apuntar a la IP pública de tu VPS. Ir al panel de administración DNS de tu proveedor de dominio (ej: Namecheap, Cloudflare, GoDaddy, Route 53) y crear los siguientes registros **A**:
 
-| Tipo | Nombre (Host)   | Valor (IP)        | Descripción                      |
-|------|-----------------|-------------------|----------------------------------|
-| A    | `python-lab`    | `<IP_PUBLICA_VPS>` | Frontend (React)                |
-| A    | `api.python-lab` | `<IP_PUBLICA_VPS>` | API REST (NestJS)               |
+| Tipo | Nombre (Host)        | Valor (IP)         | Descripción                         |
+| ---- | -------------------- | ------------------ | ----------------------------------- |
+| A    | `python-lab`         | `<IP_PUBLICA_VPS>` | Frontend (React)                    |
+| A    | `api.python-lab`     | `<IP_PUBLICA_VPS>` | API REST (NestJS)                   |
 | A    | `sandbox.python-lab` | `<IP_PUBLICA_VPS>` | Sandbox WebSocket (sandbox-service) |
 
 > **Nota:** El nombre exacto depende de tu dominio base. Si tu dominio es `pipexapp.com`, los subdominios completos serían `python-lab.pipexapp.com`, `api.python-lab.pipexapp.com` y `sandbox.python-lab.pipexapp.com`.
@@ -290,11 +313,11 @@ Este proyecto utiliza **3 subdominios** que deben apuntar a la IP pública de tu
 
 También se deben abrir los siguientes puertos en el firewall del VPS (en AWS Lightsail, ir a la pestaña **Networking** de la instancia):
 
-| Puerto | Protocolo | Uso                    |
-|--------|-----------|------------------------|
-| 22     | TCP       | SSH                    |
-| 80     | TCP       | HTTP (Nginx)           |
-| 443    | TCP       | HTTPS (Nginx + SSL)    |
+| Puerto | Protocolo | Uso                 |
+| ------ | --------- | ------------------- |
+| 22     | TCP       | SSH                 |
+| 80     | TCP       | HTTP (Nginx)        |
+| 443    | TCP       | HTTPS (Nginx + SSL) |
 
 ---
 
