@@ -58,7 +58,8 @@ export default function Estudiante() {
       wsRef.current.close();
     }
 
-    const ws = new WebSocket(`ws://${envConfig.SANDBOX_API_URL}/sandbox/execute`);
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${wsProtocol}://${envConfig.SANDBOX_API_URL}/sandbox/execute`);
     wsRef.current = ws;
 
     ws.onopen = () => {
