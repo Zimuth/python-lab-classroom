@@ -1,0 +1,65 @@
+name: CI Pipeline - API
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  api-test:
+    runs-on: ubuntu-latest
+
+    # Levanta postgreSQL automaticamente dentro del pipeline
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: python_lab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependencias
+        run: npm install
+      
+      # Verifica typeScript, imports, modulos, errores NestJS. Si no se ejecuta correctamente, el pipeline falla y no se ejecutan los tests. 
+      - name: Verificar TypeScript
+        run: npm run build
+        
+      # Verifica clean code, formato, malas practicas 
+      - name: Ejecutar ESLint
+        run: npm run lint
+
+      # Ejecuta pruebas automaticas
+      - name: Ejecutar tests
+        run: npm run test
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: python_lab

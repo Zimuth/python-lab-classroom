@@ -1,0 +1,52 @@
+name: CI Pipeline - Sandbox Service
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  sandbox-test:
+    runs-on: ubuntu-latest
+
+    # Levanta Redis ya que el Sandbox Service usa BullMQ/ioredis según el package.json
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    defaults:
+      run:
+        working-directory: apps/sandbox-service
+
+    steps: 
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependencias
+        run: npm install
+      
+      - name: Verificar TypeScript
+        run: npm run build
+        
+      - name: Ejecutar ESLint
+        run: npm run lint
+
+      - name: Ejecutar tests
+        run: npm run test
