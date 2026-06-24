@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { envConfig } from './../../envconfig';
 
 type Assignment = {
@@ -16,6 +16,8 @@ export default function Estudiante() {
   const [selectedTask, setSelectedTask] = useState<Assignment | null>(null);
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -38,15 +40,58 @@ export default function Estudiante() {
     load();
   }, []);
 
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
+
   const handleRunCode = () => {
     setOutput('');
-    try {
-      // Simple eval - en producción usar un sandbox
-      const result = eval(code);
-      setOutput(String(result) || 'Código ejecutado sin salida.');
-    } catch (err) {
-      setOutput(`Error: ${err}`);
+    setIsRunning(true);
+
+    // Close any existing connection
+    if (wsRef.current) {
+      wsRef.current.close();
     }
+
+    const ws = new WebSocket(`ws://${envConfig.SANDBOX_API_URL}/sandbox/execute`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        event: 'execute',
+        data: { code },
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+
+      if (msg.event === 'execution_result') {
+        // Stream stdout/stderr output in real-time
+        setOutput((prev) => prev + (msg.data.output || ''));
+      } else if (msg.event === 'execution_complete') {
+        setIsRunning(false);
+        ws.close();
+      } else if (msg.event === 'execution_error') {
+        setOutput((prev) => prev + `\nError: ${msg.data.message}`);
+        setIsRunning(false);
+        ws.close();
+      }
+    };
+
+    ws.onerror = () => {
+      setOutput((prev) => prev + '\nError: No se pudo conectar al servidor de ejecución.');
+      setIsRunning(false);
+    };
+
+    ws.onclose = () => {
+      setIsRunning(false);
+    };
   };
 
   if (selectedTask) {
@@ -84,15 +129,15 @@ export default function Estudiante() {
             onChange={(e) => setCode(e.target.value)}
             placeholder="Escribe tu código Python aquí..."
           />
-          <button className="run-btn" onClick={handleRunCode}>
-            Ejecutar código
+          <button className="run-btn" onClick={handleRunCode} disabled={isRunning}>
+            {isRunning ? 'Ejecutando...' : 'Ejecutar código'}
           </button>
         </div>
 
-        {output && (
+        {(output || isRunning) && (
           <div className="output-section">
             <h2>Salida</h2>
-            <pre className="output-box">{output}</pre>
+            <pre className="output-box">{output || 'Esperando salida...'}</pre>
           </div>
         )}
       </div>
