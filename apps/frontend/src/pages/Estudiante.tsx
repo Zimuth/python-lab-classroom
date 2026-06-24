@@ -59,14 +59,18 @@ export default function Estudiante() {
     }
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${wsProtocol}://${envConfig.SANDBOX_API_URL}/sandbox/execute`);
+    const ws = new WebSocket(
+      `${wsProtocol}://${envConfig.SANDBOX_API_URL}/sandbox/execute`,
+    );
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({
-        event: 'execute',
-        data: { code },
-      }));
+      ws.send(
+        JSON.stringify({
+          event: 'execute',
+          data: { code },
+        }),
+      );
     };
 
     ws.onmessage = (event) => {
@@ -86,7 +90,9 @@ export default function Estudiante() {
     };
 
     ws.onerror = () => {
-      setOutput((prev) => prev + '\nError: No se pudo conectar al servidor de ejecución.');
+      setOutput(
+        (prev) => prev + '\nError: No se pudo conectar al servidor de ejecución.',
+      );
       setIsRunning(false);
     };
 

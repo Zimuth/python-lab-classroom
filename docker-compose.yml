@@ -3,7 +3,7 @@ services:
     image: redis:8
     container_name: redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   python-sandbox:
     build: ./apps/sb-python
